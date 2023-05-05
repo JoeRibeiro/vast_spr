@@ -1,3 +1,12 @@
+# Lots to do on this script:
+# Limited study region
+# No covariates (need to add in covariate_data of other species)
+# Not sure settings$FieldConfig is set up correctly
+# Year is being passed when we should be passing more accurate times
+# No acoustic data
+# West channel survey missing, needs downloading
+
+
 if(T){
   flexfile_survey_list <- c("FR-CGFS","IE-IAMS", "NIGFS","SCOROC","SP-PORC","SP-NORTH", "NS-IBTS", "EVHOE", "SP-ARSA", "IE-IGFS", "SCOWCGFS")
   drctry = 'C:/Users/JR13/Documents/LOCAL_NOT_ONEDRIVE/SDM_course/data/joe_data/swaf_survey_vignette_tmpdir_ran_25_apr_2023'
@@ -11,9 +20,11 @@ if(T){
       first = F
   }; first = T
   loaded = NULL # rm
-  # survey_download_filtered = survey_download_raw[,c('Code','HaulID','StatRec','HaulLong','HaulLat','Nr')]
-  # survey_download_filtered = survey_download_filtered[survey_download_filtered$Code != '',]
-  # 
+  
+    
+  survey_download_filtered = survey_download_raw[,c('Code','HaulID','StatRec','HaulLong','HaulLat','Nr','Year')]
+  survey_download_filtered = survey_download_filtered[survey_download_filtered$Code != '',]
+
   # # Drop infrequently seen species
   # for(spp in unique(survey_download_filtered$Code)){
   #   thisspp = survey_download_filtered[survey_download_filtered$Code==spp,]
@@ -21,17 +32,17 @@ if(T){
   #     survey_download_filtered = survey_download_filtered[survey_download_filtered$Code!=spp,]
   #   }
   # }
-  # 
-  # wider = tidyr::pivot_wider(survey_download_filtered,id_cols = c('HaulID','StatRec','HaulLong','HaulLat'), values_from = 'Nr', names_from = 'Code',  values_fn=sum)
-  # wider[is.na(wider)] = 0
+
+  wider = tidyr::pivot_wider(survey_download_filtered,id_cols = c('HaulID','StatRec','HaulLong','HaulLat','Year'), values_from = 'Nr', names_from = 'Code',  values_fn=sum)
+  wider[is.na(wider)] = 0
   
-  survey_download_raw$Lat = survey_download_raw$HaulLat
-  survey_download_raw$Lon = survey_download_raw$HaulLong
-  survey_download_raw$Catch_KG = survey_download_raw$Nr
-  survey_download_raw$AreaSwept_KM2 = 1
-  survey_download_raw$Vessel = stringr::str_split_fixed(survey_download_raw$HaulID, ":", 6)[,5]
-  
-    
+  wider$Lat = wider$HaulLat
+  wider$Lon = wider$HaulLong
+  wider$AreaSwept_km2 = 1
+  wider$Vessel = stringr::str_split_fixed(wider$HaulID, ":", 6)[,5]
+  wider$Gear = stringr::str_split_fixed(wider$HaulID, ":", 6)[,1]
+  dat = wider#[wider$Code=='SPR',]
+
 }
 
 ### A quick demonstration of how to extract map quantities and
@@ -49,28 +60,30 @@ setwd('C:/Users/JR13/Documents/LOCAL_NOT_ONEDRIVE/vast_spr/outputs')
 ## loosely conditioned on EBS pollock.
 
 ### !! THIS IS NOT REAL DATA !! ###
-data(acoustic_and_trawl, package = "FishStatsUtils" )
-dat <- subset(acoustic_and_trawl, Year<2012)
-str(dat)       # note Gear reflects different data sets
+#data(acoustic_and_trawl, package = "FishStatsUtils" )
+#dat <- subset(acoustic_and_trawl, Year<2012)
+#str(dat)       # note Gear reflects different data sets
 ## Make default settings for index standardization
 settings <- make_settings(
          n_x = 100,
-         Region = "eastern_bering_sea",
+         Region = "C:/Users/JR13/Documents/LOCAL_NOT_ONEDRIVE/vast_spr/region_shapefile/regionofinterest.shp",
          purpose = "index2",
          bias.correct = FALSE,
          fine_scale = TRUE)
 ## settings$Options$treat_nonencounter_as_zero <- FALSE
-settings$FieldConfig[2,2] <- 0 # turn off spatiotemporal LP2
+#settings$FieldConfig[2,2] <- 0 # turn off spatiotemporal LP2
 
 ### Setup the "combined" part of the model
 ## Associate depth strata (0 = <0.5m, 1 = 0.5-16m, 2 = >16m) with each
 ## observation (row). This is two columns b/c there are
 ## observations from at most 2 strata.
-c_iz <- matrix( c(1,2, 2,NA, 3,NA),
-     byrow = TRUE,
-     nrow = 3,
-     ncol = 2)[as.numeric(dat$Gear)] - 1
-unique(c_iz)
+
+# c_iz <- matrix( c(1,2, 2,NA, 3,NA),
+#      byrow = TRUE,
+#      nrow = 3,
+#      ncol = 2)[unique(dat$Gear)] - 1
+# unique(c_iz)
+
 ## [1,]    0    1  # bottom trawl
 ## [2,]    1   NA  # acoustic 0.5-16m
 ## [3,]    2   NA  # acoustic >16m
@@ -85,12 +98,14 @@ fit <- fit_model(
     Lat_i = dat$Lat,
     Lon_i = dat$Lon,
     t_i = dat$Year,
-    c_iz = c_iz,
-    b_i = dat$Catch_KG,
+    v_i = dat$Gear,
+    b_i = dat$SPR,
     a_i = dat$AreaSwept_km2,
-    getReportCovariance = TRUE)
+    getReportCovariance = TRUE,
+    observations_LL = dat[,c('Lat','Lon')])
 
 ## Default plots
-plot_results(fit,category_names = c("Acoustic dead zone","ADZ to Effective fishing height","Effective fishing height to surface"))
+plot_results(fit)
+#plot_results(fit,category_names = c("Acoustic dead zone","ADZ to Effective fishing height","Effective fishing height to surface"))
 
 
