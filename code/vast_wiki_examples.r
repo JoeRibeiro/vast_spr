@@ -3,6 +3,7 @@
 #https://github.com/James-Thorson-NOAA/VAST/wiki/Plots-using-ggplot
 
 # Lots to do on this script:
+# Surely purpose = index2 is wrong, but what is it? Denisty? 
 # Need to add in covariate_data of other species. Species co-occurences should define the major predictors for these models
 # Need to add in covariate_data of limiting environmental parameters. These won't be strong predictors but may define e.g. northernmost extents. Include: various temperature metrics (stick to static rasters, grave/sand/mud, mean, min and max u+v current, minimum temp over whole water column), mean, min and max primary productivity
 # Should catch data be a covariate? This is a double-edged sword as you would expect higher commercial catches where it is more abundant (but also higher pressure / mortality). One to explore at the end possibly. I'm wary of using this as the basis of the model as fishing patterns are strongly influenced by relative profitability, not necessarily abundance.
@@ -98,6 +99,7 @@ fit <- fit_model(
     v_i = dat$Gear,
     b_i = dat$SPR,
     a_i = dat$AreaSwept_km2,
+    covariate_data = dat[,c('Lat','Lon','Year','COD','HER')],
     getReportCovariance = TRUE,
     observations_LL = dat[,c('Lat','Lon')])
 
