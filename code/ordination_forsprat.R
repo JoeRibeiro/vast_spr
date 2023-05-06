@@ -1,3 +1,13 @@
+# Lots to do on this script:
+# Need to add in covariate_data of other species. Species co-occurences should define the major predictors for these models
+# Need to add in covariate_data of limiting environmental parameters. These won't be strong predictors but may define e.g. northernmost extents. Include: various temperature metrics (stick to static rasters, grave/sand/mud, mean, min and max u+v current, minimum temp over whole water column), mean, min and max primary productivity
+# Should catch data be a covariate? This is a double-edged sword as you would expect higher commercial catches where it is more abundant (but also higher pressure / mortality). One to explore at the end possibly. I'm wary of using this as the basis of the model as fishing patterns are strongly influenced by relative profitability, not necessarily abundance.
+# Not sure settings$FieldConfig is set up correctly
+# Year is being passed when we should probably be passing more accurate times like month. Research how this choice should be fed into spatiotemporal models
+# No acoustic data, needs downloading and converting to be the same format
+# West channel survey missing, needs downloading
+# Do we need to be using haul-level data instead of pre-calculated swept areas?
+
 # Download release number 3.0.0; its useful for reproducibility to use a specific release number
 #devtools::install_github("james-thorson-NOAA/VAST")
 
@@ -42,7 +52,7 @@ if(T){
   survey_download_filtered$species_number = lookup[survey_download_filtered$Code]
     
   # We have no zeros in our data. Try adding them in from the other species presences using a swaf function pad zeros
-  pad_zeros(survey_download_filtered)
+  swaf::pad_zeros(survey_download_filtered)
   
   dat = survey_download_filtered
   dat = dat[dat$Code %in% c("SPR","COD","HER","PIL"),]
