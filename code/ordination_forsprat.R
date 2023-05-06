@@ -41,13 +41,20 @@ if(T){
   lookup = setNames(1:length(spps),spps)
   survey_download_filtered$species_number = lookup[survey_download_filtered$Code]
     
+  # We have no zeros in our data. Try adding them in from the other species presences using a swaf function pad zeros
+  pad_zeros(survey_download_filtered)
   
-  dat = survey_download_filtered[,c("species_number", "Year"  , "Catch_KG", "AreaSwept_km2",      "Lat"     ,  "Lon")]
-  dat = dat[dat$Code %in% c("SPR","COD","HER","PIL","ANE"),]
-
+  dat = survey_download_filtered
+  dat = dat[dat$Code %in% c("SPR","COD","HER","PIL"),]
+  dat = dat[,c("species_number", "Year"  , "Catch_KG", "AreaSwept_km2",      "Lat"     ,  "Lon")]
+  
+  # make species numbers consecutive
+  dat$species_number[dat$species_number==2]=1
+  dat$species_number[dat$species_number==8]=2
+  dat$species_number[dat$species_number==34]=3
+  dat$species_number[dat$species_number==51]=4
+  
 }
-
-
 
 
 # Decide where to run and save results
@@ -64,6 +71,12 @@ example = list()
 example$Region = "C:/Users/JR13/Documents/LOCAL_NOT_ONEDRIVE/vast_spr/region_shapefile/regionofinterest.shp"
 example$sampling_data = as.matrix(dat)
 example$strata.limits = data.frame(STRATA = "All_areas")
+
+
+# Just run for 2 years
+example[["sampling_data"]] = example[["sampling_data"]][example[["sampling_data"]][,2]<2015,]
+
+
 
 # Make settings
 settings = make_settings( n_x = 50, 
@@ -96,4 +109,10 @@ results = plot( fit,  plot_set = c(3,16,17))
 require(corrplot)
 Cov_omega1 = fit$Report$L_omega1_cf %*% t(fit$Report$L_omega1_cf)
 corrplot( cov2cor(Cov_omega1), method="pie", type="lower")
+
+
+bmp(file="crosscorrelationsplot.bmp",
+width=6, height=4, units="in", res=100)
 corrplot.mixed( cov2cor(Cov_omega1) )
+dev.off()
+

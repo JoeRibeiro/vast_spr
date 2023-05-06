@@ -12,9 +12,13 @@ library(VAST)
 # see `?load_example` for list of stocks with example data
 # that are installed automatically with `FishStatsUtils`.
 example = load_example( data_set="five_species_ordination" )
+#drop to 2 species
+#example[["sampling_data"]] = example[["sampling_data"]][example[["sampling_data"]][,1]<3,]
+# drop to fewer years
+example[["sampling_data"]] = example[["sampling_data"]][example[["sampling_data"]][,2]<1986,]
 
 # Make settings
-settings = make_settings( n_x = 50, 
+settings = make_settings( n_x = 50, # was 50, now very coarse grid at 20.
   Region = example$Region, 
   purpose = "ordination",
   strata.limits = example$strata.limits, 
