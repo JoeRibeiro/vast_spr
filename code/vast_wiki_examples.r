@@ -1,10 +1,16 @@
+# COde adapted from:
+#https://github.com/James-Thorson-NOAA/VAST/wiki/Combine-acoustic-and-bottom-trawl-data
+#https://github.com/James-Thorson-NOAA/VAST/wiki/Plots-using-ggplot
+
 # Lots to do on this script:
-# Limited study region
-# No covariates (need to add in covariate_data of other species)
+# Need to add in covariate_data of other species. Species co-occurences should define the major predictors for these models
+# Need to add in covariate_data of limiting environmental parameters. These won't be strong predictors but may define e.g. northernmost extents. Include: various temperature metrics (stick to static rasters, grave/sand/mud, mean, min and max u+v current, minimum temp over whole water column), mean, min and max primary productivity
+# Should catch data be a covariate? This is a double-edged sword as you would expect higher commercial catches where it is more abundant (but also higher pressure / mortality). One to explore at the end possibly. I'm wary of using this as the basis of the model as fishing patterns are strongly influenced by relative profitability, not necessarily abundance.
 # Not sure settings$FieldConfig is set up correctly
-# Year is being passed when we should be passing more accurate times
-# No acoustic data
+# Year is being passed when we should probably be passing more accurate times like month. Research how this choice should be fed into spatiotemporal models
+# No acoustic data, needs downloading and converting to be the same format
 # West channel survey missing, needs downloading
+# Do we need to be using haul-level data instead of pre-calculated swept areas?
 
 
 if(T){
@@ -56,14 +62,6 @@ theme_set(theme_bw())
 
 setwd('C:/Users/JR13/Documents/LOCAL_NOT_ONEDRIVE/vast_spr/outputs')
 
-## Read in prepared data which comes from a simulated example
-## loosely conditioned on EBS pollock.
-
-### !! THIS IS NOT REAL DATA !! ###
-#data(acoustic_and_trawl, package = "FishStatsUtils" )
-#dat <- subset(acoustic_and_trawl, Year<2012)
-#str(dat)       # note Gear reflects different data sets
-## Make default settings for index standardization
 settings <- make_settings(
          n_x = 100,
          Region = "C:/Users/JR13/Documents/LOCAL_NOT_ONEDRIVE/vast_spr/region_shapefile/regionofinterest.shp",
@@ -91,8 +89,7 @@ settings <- make_settings(
 ### is the summation over the first two strata, and the two
 ### acoustic data sets are only from one stratum.
 
-## Run model, with getReportCovariance = TRUE so the Delta method
-## can be used below
+## Run model, with getReportCovariance = TRUE so the Delta method can be used below
 fit <- fit_model(
     settings = settings,
     Lat_i = dat$Lat,
