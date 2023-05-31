@@ -11,8 +11,10 @@
 # Download release number 3.0.0; its useful for reproducibility to use a specific release number
 #devtools::install_github("james-thorson-NOAA/VAST")
 
+library(dplyr)
+
 if(T){
-  flexfile_survey_list <- c("FR-CGFS","IE-IAMS", "NIGFS","SCOROC","SP-PORC","SP-NORTH", "NS-IBTS", "EVHOE", "SP-ARSA", "IE-IGFS", "SCOWCGFS")
+  flexfile_survey_list <- c("FR-CGFS")#,"IE-IAMS", "NIGFS","SCOROC","SP-PORC","SP-NORTH", "NS-IBTS", "EVHOE", "SP-ARSA", "IE-IGFS", "SCOWCGFS")
   drctry = 'C:/Users/JR13/Documents/LOCAL_NOT_ONEDRIVE/SDM_course/data/joe_data/swaf_survey_vignette_tmpdir_ran_25_apr_2023'
   first = T
   for(survey in flexfile_survey_list){
@@ -29,6 +31,10 @@ if(T){
   survey_download_filtered = survey_download_raw[,c('Code','HaulID','StatRec','HaulLong','HaulLat','Nr','Year')]
   survey_download_filtered = survey_download_filtered[survey_download_filtered$Code != '',]
 
+  # Sum across length classes
+  survey_download_filtered <- aggregate(Nr ~ Code + HaulID + StatRec + Year + HaulLat + HaulLong, data = survey_download_filtered, mean) 
+  
+  
   # # Drop infrequently seen species
   # for(spp in unique(survey_download_filtered$Code)){
   #   thisspp = survey_download_filtered[survey_download_filtered$Code==spp,]
@@ -51,11 +57,24 @@ if(T){
   lookup = setNames(1:length(spps),spps)
   survey_download_filtered$species_number = lookup[survey_download_filtered$Code]
     
-  # We have no zeros in our data. Try adding them in from the other species presences using a swaf function pad zeros
-  swaf::pad_zeros(survey_download_filtered)
   
   dat = survey_download_filtered
   dat = dat[dat$Code %in% c("SPR","COD","HER","PIL"),]
+
+  # Drop cols
+  dat = dat[,c("species_number", "Year"  , "Catch_KG", "AreaSwept_km2",      "Lat"     ,  "Lon", "HaulID")]
+
+    # We have no zeros in our data. Try adding them in from the other species presences
+  for_cols = c('HaulID','species_number','Lat','Lon')#colnames(dat)[!colnames(dat) %in% c("Nr","Catch_KG")]
+  dat2 <- dat %>% tidyr::complete(!!!syms(for_cols))
+  dat2$Catch_KG[is.na(dat2$Catch_KG)]=0  
+
+  # # We have no zeros in our data. Try adding them in from the other species presences
+  # dat2 <- dat[,c('HaulID','species_number')] %>% tidyr::complete()
+  # dat2$Catch_KG[is.na(dat2$Catch_KG)]=0  
+  # 
+  
+  # Drop cols
   dat = dat[,c("species_number", "Year"  , "Catch_KG", "AreaSwept_km2",      "Lat"     ,  "Lon")]
   
   # make species numbers consecutive
