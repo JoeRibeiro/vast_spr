@@ -12,6 +12,8 @@
 #devtools::install_github("james-thorson-NOAA/VAST")
 
 library(dplyr)
+your_species = c("SPR","HER")#,"PIL","ANE","WHB","MAC")
+#your_species = c("SPR","HER","PIL","ANE","WHB","MAC")
 
 if(T){
   flexfile_survey_list <- c("FR-CGFS","IE-IAMS", "NIGFS","SCOROC","SP-PORC","SP-NORTH", "NS-IBTS", "EVHOE", "SP-ARSA", "IE-IGFS", "SCOWCGFS")
@@ -54,41 +56,42 @@ if(T){
   survey_download_filtered$Gear = stringr::str_split_fixed(survey_download_filtered$HaulID, ":", 6)[,1]
 
   spps = unique(survey_download_filtered$Code)
-  lookup = setNames(1:length(spps),spps)
-  survey_download_filtered$species_number = lookup[survey_download_filtered$Code]
-    
-  
+
   dat = survey_download_filtered
-  dat = dat[dat$Code %in% c("SPR","COD","HER","PIL"),]
+  dat = dat[dat$Code %in% your_species,]
 
-  # Drop cols
-  dat = dat[,c("species_number", "Year"  , "Catch_KG", "AreaSwept_km2",      "Lat"     ,  "Lon", "HaulID")]
-
-    # We have no zeros in our data. Try adding them in from the other species presences
-  for_cols = c('HaulID','species_number')#colnames(dat)[!colnames(dat) %in% c("Nr","Catch_KG")]
-  dat2 <- dat[,for_cols] %>% tidyr::complete(!!!syms(for_cols))
-
-  # pull over haul details
-  dat2 = merge(dat2,dat[,c("Year"  ,  "AreaSwept_km2",      "Lat"     ,  "Lon", "HaulID")], by = 'HaulID', all.x = F, all.y = F, no.dups = TRUE)
-  dat2 = dat2[!duplicated(dat2), ] # Not sure why there are duplicates here, I am doing everything possible in the merge to stop that?
+  # make species numbers consecutive
+  for( nn in 1:length(your_species)){
+    dat$species_number[dat$Code==your_species[nn]]=nn
+  }  
   
-  # Pull over presence data
-  dat2 = merge(dat2,dat[,c("species_number","HaulID","Catch_KG")], by = c("species_number","HaulID"), all.x = T, no.dups = TRUE)
-  dat2$Catch_KG[is.na(dat2$Catch_KG)]=0  
+  if(T){     # We have no zeros in our data. Try adding them in from the other species presences
+    # Surely not neccessary as we have treat_nonencounter_as_zero 
+    # This was written To address error: Some years and/or categories have 100% encounters, and this requires either temporal structure of a different link-function
+    # Still, I am told "The model is likely not converged"
 
-  dat = dat2
-  dat2 <- NULL
+    # Drop cols
+    dat = dat[,c("species_number", "Year"  , "Catch_KG", "AreaSwept_km2",      "Lat"     ,  "Lon", "HaulID")]
+  
+    for_cols = c('HaulID','species_number')#colnames(dat)[!colnames(dat) %in% c("Nr","Catch_KG")]
+    dat2 <- dat[,for_cols] %>% tidyr::complete(!!!syms(for_cols))
+  
+    # pull over haul details
+    dat2 = merge(dat2,dat[,c("Year"  ,  "AreaSwept_km2",      "Lat"     ,  "Lon", "HaulID")], by = 'HaulID', all.x = F, all.y = F, no.dups = TRUE)
+    dat2 = dat2[!duplicated(dat2), ] # Not sure why there are duplicates here, I am doing everything possible in the merge to stop that?
+    
+    # Pull over presence data
+    dat2 = merge(dat2,dat[,c("species_number","HaulID","Catch_KG")], by = c("species_number","HaulID"), all.x = T, no.dups = TRUE)
+    dat2$Catch_KG[is.na(dat2$Catch_KG)]=0  
+  
+    dat = dat2
+    dat2 <- NULL
+  }
   # Drop cols
   dat = dat[,c("species_number", "Year"  , "Catch_KG", "AreaSwept_km2",      "Lat"     ,  "Lon")]
   
-  # make species numbers consecutive
-  dat$species_number[dat$species_number==lookup[spps=='SPR'][[1]]]=1
-  dat$species_number[dat$species_number==lookup[spps=='COD'][[1]]]=2
-  dat$species_number[dat$species_number==lookup[spps=='HER'][[1]]]=3
-  dat$species_number[dat$species_number==lookup[spps=='PIL'][[1]]]=4
-  
-}
 
+}
 
 # Decide where to run and save results
 setwd('C:/Users/JR13/Documents/LOCAL_NOT_ONEDRIVE/vast_spr/outputs')
@@ -116,12 +119,13 @@ settings = make_settings( n_x = 50,
   Region = example$Region, 
   purpose = "ordination",
   strata.limits = example$strata.limits, 
-  n_categories = 2 )
+  n_categories = 2,
+  treat_nonencounter_as_zero = T)
 
 # Modify settings to allow model to run faster for demo 
-settings$FieldConfig['Beta',] = "IID"
-settings$FieldConfig['Epsilon',] = 0
-settings$RhoConfig[] = 0
+settings$FieldConfig['Beta',] = "IID" # specifies that a model component (temporal variation) is correlated following an first-order autoregressive process
+settings$FieldConfig['Epsilon',] = 0 # Turns off spatio-temporal variation component
+settings$RhoConfig[] = 0 # Set all to a fixed effect
 
 # Run model
 fit = fit_model( settings = settings, 
@@ -133,6 +137,7 @@ fit = fit_model( settings = settings,
   a_i = example$sampling_data[,'AreaSwept_km2'],
   newtonsteps = 0,
   getsd = FALSE )
+
 
 # Plot results
 results = plot( fit,  plot_set = c(3,16,17))
