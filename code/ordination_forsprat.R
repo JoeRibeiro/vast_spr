@@ -14,7 +14,7 @@
 library(dplyr)
 
 if(T){
-  flexfile_survey_list <- c("FR-CGFS")#,"IE-IAMS", "NIGFS","SCOROC","SP-PORC","SP-NORTH", "NS-IBTS", "EVHOE", "SP-ARSA", "IE-IGFS", "SCOWCGFS")
+  flexfile_survey_list <- c("FR-CGFS","IE-IAMS", "NIGFS","SCOROC","SP-PORC","SP-NORTH", "NS-IBTS", "EVHOE", "SP-ARSA", "IE-IGFS", "SCOWCGFS")
   drctry = 'C:/Users/JR13/Documents/LOCAL_NOT_ONEDRIVE/SDM_course/data/joe_data/swaf_survey_vignette_tmpdir_ran_25_apr_2023'
   first = T
   for(survey in flexfile_survey_list){
@@ -65,23 +65,27 @@ if(T){
   dat = dat[,c("species_number", "Year"  , "Catch_KG", "AreaSwept_km2",      "Lat"     ,  "Lon", "HaulID")]
 
     # We have no zeros in our data. Try adding them in from the other species presences
-  for_cols = c('HaulID','species_number','Lat','Lon')#colnames(dat)[!colnames(dat) %in% c("Nr","Catch_KG")]
-  dat2 <- dat %>% tidyr::complete(!!!syms(for_cols))
+  for_cols = c('HaulID','species_number')#colnames(dat)[!colnames(dat) %in% c("Nr","Catch_KG")]
+  dat2 <- dat[,for_cols] %>% tidyr::complete(!!!syms(for_cols))
+
+  # pull over haul details
+  dat2 = merge(dat2,dat[,c("Year"  ,  "AreaSwept_km2",      "Lat"     ,  "Lon", "HaulID")], by = 'HaulID', all.x = F, all.y = F, no.dups = TRUE)
+  dat2 = dat2[!duplicated(dat2), ] # Not sure why there are duplicates here, I am doing everything possible in the merge to stop that?
+  
+  # Pull over presence data
+  dat2 = merge(dat2,dat[,c("species_number","HaulID","Catch_KG")], by = c("species_number","HaulID"), all.x = T, no.dups = TRUE)
   dat2$Catch_KG[is.na(dat2$Catch_KG)]=0  
 
-  # # We have no zeros in our data. Try adding them in from the other species presences
-  # dat2 <- dat[,c('HaulID','species_number')] %>% tidyr::complete()
-  # dat2$Catch_KG[is.na(dat2$Catch_KG)]=0  
-  # 
-  
+  dat = dat2
+  dat2 <- NULL
   # Drop cols
   dat = dat[,c("species_number", "Year"  , "Catch_KG", "AreaSwept_km2",      "Lat"     ,  "Lon")]
   
   # make species numbers consecutive
-  dat$species_number[dat$species_number==2]=1
-  dat$species_number[dat$species_number==8]=2
-  dat$species_number[dat$species_number==34]=3
-  dat$species_number[dat$species_number==51]=4
+  dat$species_number[dat$species_number==lookup[spps=='SPR'][[1]]]=1
+  dat$species_number[dat$species_number==lookup[spps=='COD'][[1]]]=2
+  dat$species_number[dat$species_number==lookup[spps=='HER'][[1]]]=3
+  dat$species_number[dat$species_number==lookup[spps=='PIL'][[1]]]=4
   
 }
 
