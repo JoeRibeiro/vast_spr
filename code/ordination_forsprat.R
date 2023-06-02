@@ -1,5 +1,7 @@
 # Lots to do on this script:
-# Need to add in covariate_data of other species. Species co-occurences should define the major predictors for these models
+# I can run it when I use the settings "Modify settings to allow model to run faster for demo" as per the Thorsen demo. But when I apply Chibuzor's settings it breaks.
+# Speak to Nicola about how to do this type of modelling correctly.
+# It only has two years of data. Try fudging some data to add more years in?
 # Need to add in covariate_data of limiting environmental parameters. These won't be strong predictors but may define e.g. northernmost extents. Include: various temperature metrics (stick to static rasters, grave/sand/mud, mean, min and max u+v current, minimum temp over whole water column), mean, min and max primary productivity
 # Should catch data be a covariate? This is a double-edged sword as you would expect higher commercial catches where it is more abundant (but also higher pressure / mortality). One to explore at the end possibly. I'm wary of using this as the basis of the model as fishing patterns are strongly influenced by relative profitability, not necessarily abundance.
 # Not sure settings$FieldConfig is set up correctly
@@ -12,7 +14,7 @@
 #devtools::install_github("james-thorson-NOAA/VAST")
 
 library(dplyr)
-your_species = c("SPR","HER")#,"PIL","ANE","WHB","MAC")
+your_species = c("SPR","HER","PIL","ANE","WHB","MAC")
 #your_species = c("SPR","HER","PIL","ANE","WHB","MAC")
 
 if(T){
@@ -66,9 +68,9 @@ if(T){
   }  
   
   if(T){     # We have no zeros in our data. Try adding them in from the other species presences
-    # Surely not neccessary as we have treat_nonencounter_as_zero 
+    # I don't see why this is neccessary as we have treat_nonencounter_as_zero 
     # This was written To address error: Some years and/or categories have 100% encounters, and this requires either temporal structure of a different link-function
-    # Still, I am told "The model is likely not converged"
+    # Even with treat_nonencounter_as_zero it still seems to increase the chances of the model converging
 
     # Drop cols
     dat = dat[,c("species_number", "Year"  , "Catch_KG", "AreaSwept_km2",      "Lat"     ,  "Lon", "HaulID")]
@@ -122,10 +124,48 @@ settings = make_settings( n_x = 50,
   n_categories = 2,
   treat_nonencounter_as_zero = T)
 
-# Modify settings to allow model to run faster for demo 
+settings$ObsModel <- c(1,0)#lognormal positive and binomial with logit-link for encounter probability
+
+## Other observation model (link functions and distributions) that could be used depending on the data:
+#ObsModel <- c(2, 0) ## gamma positive and binomial with logit-link for encounter probability
+#ObsModel <- c(2, 1) ## gamma positive and binomial with poisson for encounter probability
+
+###---Model parameters: chibuzor's settings
+# OverdispersionConfig <- c("Eta1" = 0, "Eta2" = 0) #overdispersion turned off
+# settings$FieldConfig <- c("Omega1" = 0, "Epsilon1" = 2, "Omega2" = 0, "Epsilon2" =0)
+# settings$RhoConfig <- c("Beta1" = 2, "Beta2" = 0, "Epsilon1" = 2, "Epsilon2" = 0)
+
+###---Model parameters: chibuzor's settings, modified. Runs but doesn't return any cross corr
+# OverdispersionConfig <- c("Eta1" = 0, "Eta2" = 0) #overdispersion turned off
+# settings$FieldConfig <- c("Omega1" = 0, "Epsilon1" = 2, "Omega2" = 0, "Epsilon2" =0)
+# settings$RhoConfig <- c("Beta1" = 3, "Beta2" = 0, "Epsilon1" = 2, "Epsilon2" = 0)
+
+
+# # Modify settings to allow model to run faster for demo 
 settings$FieldConfig['Beta',] = "IID" # specifies that a model component (temporal variation) is correlated following an first-order autoregressive process
 settings$FieldConfig['Epsilon',] = 0 # Turns off spatio-temporal variation component
 settings$RhoConfig[] = 0 # Set all to a fixed effect
+
+
+
+# Initially run with build_model = FALSE to get number of parameters
+fit_orig = fit_model(settings = settings, 
+                     Lat_i = example$sampling_data[,'Lat'], 
+                     Lon_i = example$sampling_data[,'Lon'],
+                     t_i = example$sampling_data[,'Year'], 
+                     c_i = as.numeric(example$sampling_data[,"species_number"])-1,
+                     b_i = example$sampling_data[,'Catch_KG'], 
+                     a_i = example$sampling_data[,'AreaSwept_km2'],
+                     newtonsteps = 0,
+                     getsd = FALSE,
+                      build_model = FALSE )
+
+# Extract default constructions
+#data_custom = fit_orig$data_list
+map_custom = fit_orig$tmb_list$Map
+parameters_custom = fit_orig$tmb_list$Parameters
+#parameters_custom[["L_beta1_z"]]= c(0,0,0,0,0,0)
+#map_custom[["L_beta2_z"]] = as.factor(0)
 
 # Run model
 fit = fit_model( settings = settings, 
@@ -135,13 +175,15 @@ fit = fit_model( settings = settings,
   c_i = as.numeric(example$sampling_data[,"species_number"])-1,
   b_i = example$sampling_data[,'Catch_KG'], 
   a_i = example$sampling_data[,'AreaSwept_km2'],
-  newtonsteps = 0,
-  getsd = FALSE )
+  newtonsteps = 2,
+  getsd = FALSE,
+  Map=map_custom)#,
+  #Parameters = parameters_custom)
 
 
 # Plot results
-results = plot( fit,  plot_set = c(3,16,17))
-#  category_names = c("pollock", "cod", "arrowtooth", "snow_crab", "yellowfin") )
+#results = plot( fit,  plot_set = c(1,2,3,6:9,11:21),  category_names = your_species )
+results = plot( fit,  plot_set = c(3),  category_names = your_species )
 
 # Plot correlations (showing Omega1 as example)
 require(corrplot)
@@ -151,6 +193,6 @@ corrplot( cov2cor(Cov_omega1), method="pie", type="lower")
 
 bmp(file="crosscorrelationsplot.bmp",
 width=6, height=4, units="in", res=100)
-corrplot.mixed( cov2cor(Cov_omega1) )
+corrplot.mixed(cov2cor(Cov_omega1) )
 dev.off()
 
