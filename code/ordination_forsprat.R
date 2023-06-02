@@ -14,7 +14,10 @@
 #devtools::install_github("james-thorson-NOAA/VAST")
 
 library(dplyr)
-your_species = c("SPR","HER","PIL","ANE","WHB","MAC")
+# These groups won't necessarily be honored, but using this approach is useful to gauge how many groups you want the model to end up with
+speciesgroups = list(c("SPR","HER"),c("PIL","ANE"),c("WHB","MAC","WHG","HOM"),c("POL","HKE","COD"))
+your_species = unlist(speciesgroups)
+your_categories = length(speciesgroups)
 #your_species = c("SPR","HER","PIL","ANE","WHB","MAC")
 
 if(T){
@@ -117,11 +120,11 @@ example[["sampling_data"]] = example[["sampling_data"]][example[["sampling_data"
 
 
 # Make settings
-settings = make_settings( n_x = 50, 
+settings = make_settings(n_x = 50, 
   Region = example$Region, 
   purpose = "ordination",
   strata.limits = example$strata.limits, 
-  n_categories = 2,
+  n_categories = your_categories,
   treat_nonencounter_as_zero = T)
 
 settings$ObsModel <- c(1,0)#lognormal positive and binomial with logit-link for encounter probability
@@ -188,6 +191,8 @@ results = plot( fit,  plot_set = c(3),  category_names = your_species )
 # Plot correlations (showing Omega1 as example)
 require(corrplot)
 Cov_omega1 = fit$Report$L_omega1_cf %*% t(fit$Report$L_omega1_cf)
+rownames(Cov_omega1) = your_species
+colnames(Cov_omega1) = your_species
 corrplot( cov2cor(Cov_omega1), method="pie", type="lower")
 
 
